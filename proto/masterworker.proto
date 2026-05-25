@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package masterworker;
+
+service MasterWorker {
+  // Master minta info storage ke Worker
+  rpc GetStorageInfo(StorageRequest) returns (StorageResponse);
+
+  // Bidirectional streaming (Master bisa kirim command, Worker kirim status)
+  // rpc Monitor (stream MasterCommand) returns (stream WorkerStatus);
+}
+
+message StorageRequest {
+  string worker_id = 1;
+}
+
+message StorageResponse {
+  string worker_id = 1;
+  uint64 total_space = 2;     // dalam bytes
+  uint64 used_space = 3;
+  uint64 available_space = 4;
+  double usage_percent = 5;
+}
+
+// message MasterCommand {
+//   string command = 1;         // contoh: "check_storage", "restart", dll
+//   string payload = 2;
+// }
+//
+// message WorkerStatus {
+//   string worker_id = 1;
+//   string status = 2;          // "online", "busy", "error"
+//   string message = 3;
+// }
