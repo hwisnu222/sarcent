@@ -1,86 +1,94 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, thread, time::Duration};
 
-use clap::{Parser, ValueEnum};
+use clap::{Parser};
 use tonic::transport::Server;
 
-use crate::service::worker::{WorkerService, masterworker::{self, StorageRequest, master_worker_server::MasterWorkerServer}};
+use crate::service::{repository::Repository, ui::{Cli, Command, NodeAction}, worker::{WorkerService, masterworker::{self, StorageRequest, master_worker_server::MasterWorkerServer}}};
 
 pub mod service;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, ValueEnum)]
-pub enum Mode{
-    Master,
-    Worker,
-}
-
-#[derive(Debug, Parser)]
-#[command(version, about="sercent - file server worker")]
-struct Args{
-    #[arg(short, long,value_enum, default_value_t=Mode::Worker)]
-    mode: Mode,
-
-    #[arg(short, long, default_value="0.0.0.0:50051")]
-    address: String,
-
-    #[arg(short, long, default_value="worker-01")]
-    worker_id: String
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
+    let args = Cli::parse();
+    let repo = Repository::new().await?;
 
-    match args.mode {
-        Mode::Master => {
-            println!("master is running");
+    match args.command{
+        Command::Master { interval , target} => {
+            println!("master is running, target: {}", target);
             // list all worker
-            let workers = vec!["http://localhost:50051"];
+            let servers = repo.get_servers().await?;
 
-            for worker_addr in workers{
-                println!("Connecting to {}", worker_addr);
 
-                match masterworker::master_worker_client::MasterWorkerClient::connect(worker_addr).await{
-                    Ok(mut client)=> {
-                        println!("connected");
+            loop {
+                for worker_addr in servers.clone(){
+                    println!("Connecting to {}", worker_addr);
+                    let ip_server = format!("http://{}", worker_addr);
 
-                        let request = tonic::Request::new(StorageRequest{
-                            worker_id: args.worker_id.clone(),
-                        });
+                    match masterworker::master_worker_client::MasterWorkerClient::connect(ip_server).await{
+                        Ok(mut client)=> {
+                            println!("connected");
 
-                        match client.get_storage_info(request).await{
-                            Ok(response)=>{
-                                let info = response.into_inner();
+                            let request = tonic::Request::new(StorageRequest{});
 
-                                println!("usage: {:.2}%", info.usage_percent);
+                            match client.get_storage_info(request).await{
+                                Ok(response)=>{
+                                    let info = response.into_inner();
 
-                                
-                            },
-                            Err(_)=>{
-                                println!("failed get info storage");
-                            }
-                            
-                        };
-
-                    },
-                    Err(_)=>{
-                        println!("error connected");
+                                    println!("usage: {:.2}%", info.usage_percent);
+                                },
+                                Err(_)=>{
+                                    println!("failed get info storage");
+                                }
+                            };
+                        },
+                        Err(_)=>{
+                            println!("error connected");
+                        }
                     }
                 }
+                thread::sleep(Duration::from_secs(interval));
             }
+
+
         },
-        Mode::Worker =>{
-            println!("worker is running...");
+        Command::Worker { master_addr, target} => {
+            println!("worker is running.... target: {}", target);
             let worker_service =  WorkerService{
                 worker_id: "worker-01".to_string(),
             };
 
             Server::builder()
                 .add_service(MasterWorkerServer::new(worker_service))
-                .serve(args.address.parse::<SocketAddr>()?)
+                .serve(master_addr.parse::<SocketAddr>()?)
                 .await?;
+
+        },
+        Command::Node(node_args)=> {
+            match node_args.action {
+                NodeAction::Add { ips }  =>{
+                    println!("register ip worker");
+
+                    for ip in ips{
+                        println!("creating 126 vnodes partition");
+                        repo.add_node(ip).await?;
+                    }
+                },
+                NodeAction::List => {
+                   let servers = repo.get_servers().await?;
+
+                   if servers.is_empty(){
+                       println!("server is empty");
+                   }else{
+                       println!("Total active server: {} server", servers.len());
+                       for (index, ip) in servers.iter().enumerate(){
+                           println!("{}.  [{}]", index+1, ip);
+                       }
+                   }
+                }
+                
+            }
         }
     }
 
-    println!("{:?}", args.mode);
     Ok(())
 }

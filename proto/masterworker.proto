@@ -11,7 +11,7 @@ service MasterWorker {
 }
 
 message StorageRequest {
-  string worker_id = 1;
+  // string worker_id = 1;
 }
 
 message StorageResponse {

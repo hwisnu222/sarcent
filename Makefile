@@ -1,0 +1,14 @@
+worker:
+	cargo run -- worker --master-addr 0.0.0.0:50051
+
+master:
+	cargo run -- master
+
+node:
+	cargo run -- node add --ips=0.0.0.0:50051
+
+node-list:
+	cargo run -- node list
+
+help:
+	cargo run -- -h
