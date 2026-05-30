@@ -1,5 +1,5 @@
 worker:
-	cargo run -- worker --master-addr 0.0.0.0:50051 --target storage
+	cargo run -- worker --target storage
 
 master:
 	cargo run -- master --source source --interval 20

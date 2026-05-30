@@ -1,5 +1,6 @@
-use std::{env, error::Error, fs, net::SocketAddr, path::Path, thread, time::Duration};
+use std::{env, error::Error, fs, path::Path, thread, time::Duration};
 use tonic::{ transport::{Channel, Server}};
+use uuid::Uuid;
 use crate::modules::{hash::hash_to_coordinate, repository::Repository, util::upload_stream_file, worker::{FileUploadData, WorkerService, masterworker::{self, StorageRequest, file_service_client::FileServiceClient, file_service_server::FileServiceServer, master_worker_server::MasterWorkerServer}}};
 use walkdir::WalkDir;
 
@@ -96,13 +97,14 @@ pub async fn master_runner(repo: Repository, interval: u64, source: String, tls:
 }
 
 
-pub async fn worker_runner(master_addr: String, target: String ) -> Result<(), Box<dyn Error>>{
-    println!("worker is running.... target: {}", target);
+pub async fn worker_runner(target: String ) -> Result<(), Box<dyn Error>>{
+    println!("worker is running....\ntarget: {}/", target);
+
+    let address = "0.0.0.0:50051".parse()?;
     let worker_service =  WorkerService{
-        worker_id: format!("worker-{}",1),
+        worker_id: format!("worker-{}", Uuid::new_v4()),
     };
 
-    println!("target: {}", target);
     let root_dir = Path::new(&target);
     if let Err(e) = env::set_current_dir(&root_dir){
         eprintln!("failed change workdir to {}. Error: {}",root_dir.display(), e);
@@ -114,7 +116,7 @@ pub async fn worker_runner(master_addr: String, target: String ) -> Result<(), B
         // add struct fileuploadservice to register on server
         .add_service(FileServiceServer::new(FileUploadData))
         .add_service(MasterWorkerServer::new(worker_service))
-        .serve(master_addr.parse::<SocketAddr>()?)
+        .serve(address)
         .await?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 use clap::{Parser};
 
-use crate::modules::{daemon::{Daemon}, repository::Repository, ui::{Cli, Command, NodeAction}, runner::{master_runner, worker_runner}};
+use crate::modules::{repository::Repository, ui::{Cli, Command, NodeAction}, runner::{master_runner, worker_runner}};
 
 pub mod modules;
 
@@ -19,13 +19,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             master_runner(repo, interval, source, tls).await?;
 
         },
-        Command::Worker { master_addr, target, detach:_} => {
+        Command::Worker { target, detach:_} => {
             // if detach{
             //     let daemon = Daemon::new("sercent-worker");
             //     daemon.run_background();
             // }
 
-            worker_runner(master_addr, target).await?;
+            worker_runner(target).await?;
         },
         Command::Node(node_args)=> {
             match node_args.action {

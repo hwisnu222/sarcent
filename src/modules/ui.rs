@@ -23,9 +23,6 @@ pub enum Command{
         tls: bool,
     },
     Worker{
-        #[arg(short,long, required=true)]
-        master_addr: String,
-
         #[arg(short, long, default_value=".")]
         target: String,
 
