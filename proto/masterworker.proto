@@ -10,6 +10,24 @@ service MasterWorker {
   // rpc Monitor (stream MasterCommand) returns (stream WorkerStatus);
 }
 
+
+service FileService{
+  rpc UploadFile(stream FileChunk) returns (UploadResponse);
+}
+
+message FileChunk{
+  string filename = 1;
+  bytes data = 2;
+  uint64 offset = 3;
+  bool is_last = 4;
+}
+
+message UploadResponse{
+  string file_id = 1;
+  string status = 2;
+  string message = 3;
+}
+
 message StorageRequest {
   // string worker_id = 1;
 }

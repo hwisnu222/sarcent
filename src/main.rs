@@ -1,11 +1,9 @@
-use std::{net::SocketAddr, thread, time::Duration};
-
 use clap::{Parser};
-use tonic::transport::Server;
 
-use crate::service::{repository::Repository, ui::{Cli, Command, NodeAction}, worker::{WorkerService, masterworker::{self, StorageRequest, master_worker_server::MasterWorkerServer}}};
+use crate::modules::{daemon::{Daemon}, repository::Repository, ui::{Cli, Command, NodeAction}, runner::{master_runner, worker_runner}};
 
-pub mod service;
+pub mod modules;
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,55 +11,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let repo = Repository::new().await?;
 
     match args.command{
-        Command::Master { interval , target} => {
-            println!("master is running, target: {}", target);
-            // list all worker
-            let servers = repo.get_servers().await?;
+        Command::Master { interval , source, detach} => {
+            // if detach{
+            //     let daemon = Daemon::new("sercent-master");
+            //     daemon.run_background();
+            // }
 
-
-            loop {
-                for worker_addr in servers.clone(){
-                    println!("Connecting to {}", worker_addr);
-                    let ip_server = format!("http://{}", worker_addr);
-
-                    match masterworker::master_worker_client::MasterWorkerClient::connect(ip_server).await{
-                        Ok(mut client)=> {
-                            println!("connected");
-
-                            let request = tonic::Request::new(StorageRequest{});
-
-                            match client.get_storage_info(request).await{
-                                Ok(response)=>{
-                                    let info = response.into_inner();
-
-                                    println!("usage: {:.2}%", info.usage_percent);
-                                },
-                                Err(_)=>{
-                                    println!("failed get info storage");
-                                }
-                            };
-                        },
-                        Err(_)=>{
-                            println!("error connected");
-                        }
-                    }
-                }
-                thread::sleep(Duration::from_secs(interval));
-            }
-
+            master_runner(repo, interval, source).await?;
 
         },
-        Command::Worker { master_addr, target} => {
-            println!("worker is running.... target: {}", target);
-            let worker_service =  WorkerService{
-                worker_id: "worker-01".to_string(),
-            };
+        Command::Worker { master_addr, target, detach} => {
+            // if detach{
+            //     let daemon = Daemon::new("sercent-worker");
+            //     daemon.run_background();
+            // }
 
-            Server::builder()
-                .add_service(MasterWorkerServer::new(worker_service))
-                .serve(master_addr.parse::<SocketAddr>()?)
-                .await?;
-
+            worker_runner(master_addr, target).await?;
         },
         Command::Node(node_args)=> {
             match node_args.action {

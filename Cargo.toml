@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+async-stream = "0.3.6"
 clap = { version = "4.6.1", features = ["derive"] }
+daemonize = "0.5.0"
 murmur3 = "0.5.2"
 prost = "0.14.3"
 sysinfo = "0.39.2"
@@ -13,6 +15,8 @@ tokio-rusqlite = { version = "0.7.0", features = ["bundled"] }
 tokio-stream = "0.1.18"
 tonic = { version = "0.14.6", features = ["transport"] }
 tonic-prost = "0.14.6"
+uuid = { version = "1.23.2", features = ["v4", "v7"] }
+walkdir = "2.5.0"
 
 
 

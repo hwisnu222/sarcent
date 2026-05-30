@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error};
 
 use tokio_rusqlite::{Connection, rusqlite};
 
-use crate::service::hash::hash_to_coordinate;
+use crate::modules::hash::hash_to_coordinate;
 
 pub struct HashRing{
     pub ring: Vec<i64>,

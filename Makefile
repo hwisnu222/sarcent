@@ -1,8 +1,8 @@
 worker:
-	cargo run -- worker --master-addr 0.0.0.0:50051
+	cargo run -- worker --master-addr 0.0.0.0:50051 --target storage
 
 master:
-	cargo run -- master
+	cargo run -- master --source source
 
 node:
 	cargo run -- node add --ips=0.0.0.0:50051

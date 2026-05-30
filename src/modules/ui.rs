@@ -1,4 +1,4 @@
-use clap::{Parser,Subcommand, Args};
+use clap::{Parser,Subcommand, Args, ArgAction::SetTrue};
 
 #[derive(Debug, Parser)]
 #[command(version, about="sercent - file server worker")]
@@ -14,14 +14,20 @@ pub enum Command{
         interval: u64,
 
         #[arg(short, long, default_value=".")]
-        target: String
+        source: String,
+
+        #[arg(short='d', long="detach", action=SetTrue)]
+        detach: bool,
     },
     Worker{
         #[arg(short,long, required=true)]
         master_addr: String,
 
         #[arg(short, long, default_value=".")]
-        target: String
+        target: String,
+
+        #[arg(short='d', long="detach", action=SetTrue)]
+        detach: bool,
     },
 
     Node(NodeArgs)
