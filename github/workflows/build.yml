@@ -1,0 +1,69 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          # Linux x86_64 (AMD/Intel Server)
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            artifact_name: linux-x86_64
+
+          # Linux ARM64 (aarch64)
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            artifact_name: linux-aarch64
+
+          # Optional: Static binary dengan musl(portable)
+          # - target: x86_64-unknown-linux-musl
+          #   runner: ubuntu-22.04
+          #   artifact_name: linux-x86_64-musl
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross compilation tools (untuk ARM)
+        if: contains(matrix.target, 'aarch64')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Build Release
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare Artifact
+        run: |
+          mkdir -p release
+          cp target/${{ matrix.target }}/release/sarcent release/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: release/sarcent
+          retention-days: 30
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release/sarcent
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
