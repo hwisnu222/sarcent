@@ -1,11 +1,11 @@
 # Sarcent
 
-a tool for create device to sharing file each other with cluster
-so when if one of device is over full storage, the master server will send file to other device has running this tool
+**Sarcent** is a tool that allows multiple devices to form a cluster for distributed file sharing.
 
-this connection need ip device to connect other device
+If one device is running out of storage, the master server will automatically move files to another device in the cluster that still has available space.
 
-## features
+## Features
 
-- connected device list
-- all file list at all device
+- List of connected devices
+- Automatic file distribution when storage is nearly full
+- Cluster management (master & nodes)
