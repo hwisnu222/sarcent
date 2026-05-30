@@ -20,6 +20,7 @@ message FileChunk{
   bytes data = 2;
   uint64 offset = 3;
   bool is_last = 4;
+  string path = 5;
 }
 
 message UploadResponse{

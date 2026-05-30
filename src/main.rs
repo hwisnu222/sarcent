@@ -4,23 +4,22 @@ use crate::modules::{daemon::{Daemon}, repository::Repository, ui::{Cli, Command
 
 pub mod modules;
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
     let repo = Repository::new().await?;
 
     match args.command{
-        Command::Master { interval , source, detach} => {
+        Command::Master { interval , source, detach:_, tls} => {
             // if detach{
             //     let daemon = Daemon::new("sercent-master");
             //     daemon.run_background();
             // }
 
-            master_runner(repo, interval, source).await?;
+            master_runner(repo, interval, source, tls).await?;
 
         },
-        Command::Worker { master_addr, target, detach} => {
+        Command::Worker { master_addr, target, detach:_} => {
             // if detach{
             //     let daemon = Daemon::new("sercent-worker");
             //     daemon.run_background();

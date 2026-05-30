@@ -2,7 +2,6 @@ pub mod masterworker {
     tonic::include_proto!("masterworker");
 }
 
-use clap::Parser;
 use masterworker::master_worker_server::{MasterWorker};
 use masterworker::file_service_server::{FileService};
 use masterworker::{StorageRequest, StorageResponse};
@@ -12,7 +11,6 @@ use tokio::io::AsyncWriteExt;
 use tonic::{Request, Response, Status, Streaming};
 use uuid::Uuid;
 
-use crate::modules::ui::{Cli, Command};
 use crate::modules::worker::masterworker::{FileChunk, UploadResponse};
 
 #[derive(Clone)]
@@ -56,50 +54,43 @@ pub struct FileUploadData;
 #[tonic::async_trait]
 impl FileService for FileUploadData{
     async fn upload_file(&self, request: Request<Streaming<FileChunk>>)-> Result<Response<UploadResponse>, Status>{
-        let args = Cli::parse();
+        let mut stream = request.into_inner();
+        let mut file: Option<File> = None;
+        let mut total_size = 0u64;
+        let mut filename = String::new();
 
-       let result = if let Command::Worker { target, master_addr: _, detach: _ } = args.command{
+        // catch stream from client and save to file
+        while let Some(chunk) = stream.message().await?{
+            if file.is_none(){
+                filename = chunk.filename.clone();
 
-            let mut stream = request.into_inner();
-            let mut file: Option<File> = None;
-            let mut total_size = 0u64;
-            let mut filename = String::new();
-            let storage_path = &target;
+                let path = format!("{}/{}",chunk.path, filename);
+                std::fs::create_dir_all(chunk.path).unwrap();
 
-            // catch stream from client and save to file
-            while let Some(chunk) = stream.message().await?{
-                if file.is_none(){
-                    filename = chunk.filename.clone();
-                    let path = format!("{}/{}",storage_path, filename);
-                    std::fs::create_dir_all(storage_path).unwrap();
-                    let raw_file = File::create(&path).await.map_err(|e| {
-                        Status::internal(format!("{:?}", e))
-                    })?;
-                    file = Some(raw_file);
-                }
-
-                let f = file.as_mut().unwrap();
-                f.write_all(&chunk.data).await
-                    .map(|e| Status::internal(format!("{:?}", e)))?;
-                total_size += chunk.data.len() as u64;
-
-                // flush chunk data in memory so the memory not fulled with trash chunk unused
-                if chunk.is_last {
-                    f.flush().await.unwrap();
-                    break;
-                }
+                let raw_file = File::create(&path).await.map_err(|e| {
+                    Status::internal(format!("{:?}", e))
+                })?;
+                file = Some(raw_file);
             }
 
-            let result = UploadResponse{
-                file_id: Uuid::new_v4().to_string() ,
-                message: format!("success upload file. filename: {}, filesize: {}",filename, total_size / 1024 / 1024),
-                status: "success".to_string()
-            };
-            Ok(tonic::Response::new(result))
-        }else{
-            Err(Status::invalid_argument("please running as Master mode"))
+            let f = file.as_mut().unwrap();
+            f.write_all(&chunk.data).await
+                .map(|e| Status::internal(format!("{:?}", e)))?;
+            total_size += chunk.data.len() as u64;
+
+            // flush chunk data in memory so the memory not fulled with trash chunk unused
+            if chunk.is_last {
+                f.flush().await.unwrap();
+                break;
+            }
+        }
+
+        let result = UploadResponse{
+            file_id: Uuid::new_v4().to_string() ,
+            message: format!("success upload file. filename: {}, filesize: {}",filename, total_size / 1024 / 1024),
+            status: "success".to_string()
         };
-       result
+        Ok(tonic::Response::new(result))
     }
 }
 

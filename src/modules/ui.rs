@@ -18,6 +18,9 @@ pub enum Command{
 
         #[arg(short='d', long="detach", action=SetTrue)]
         detach: bool,
+
+        #[arg(short, long, action=SetTrue)]
+        tls: bool,
     },
     Worker{
         #[arg(short,long, required=true)]
