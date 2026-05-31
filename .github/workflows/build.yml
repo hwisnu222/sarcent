@@ -15,17 +15,14 @@ jobs:
     strategy:
       matrix:
         include:
-          # Linux x86_64 (AMD/Intel)
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-22.04
             artifact_name: sarcent-x86_64
 
-          # Linux ARM64 (aarch64)
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-22.04
             artifact_name: sarcent-aarch64
 
-          # Android ARM64 (Android)
           - target: aarch64-linux-android
             runner: ubuntu-22.04
             artifact_name: sarcent-android-aarch64
@@ -39,11 +36,11 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cargo-ndk (Android Only)
+      - name: Install cargo-ndk (Android)
         if: matrix.target == 'aarch64-linux-android'
         run: cargo install cargo-ndk
 
-      - name: Install build dependencies (Linux & Protobuf)
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
@@ -56,16 +53,14 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
           if [ "${{ matrix.target }}" = "aarch64-linux-android" ]; then
-            # target aarch64-linux-android
-            cargo ndk -t arm64-v8a -p 29 build --release
+            cargo ndk -t arm64-v8a --platform 29 build --release
+            mkdir -p release
+            cp target/aarch64-linux-android/release/sarcent release/${{ matrix.artifact_name }}
           else
             cargo build --release --target ${{ matrix.target }}
+            mkdir -p release
+            cp target/${{ matrix.target }}/release/sarcent release/${{ matrix.artifact_name }}
           fi
-
-      - name: Prepare Artifact
-        run: |
-          mkdir -p release
-          cp target/${{ matrix.target }}/release/sarcent release/${{ matrix.artifact_name }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -74,13 +69,30 @@ jobs:
           path: release/${{ matrix.artifact_name }}
           retention-days: 30
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          files: release/${{ matrix.artifact_name }}
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
           tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+          files: |
+            artifacts/sarcent-x86_64/sarcent-x86_64
+            artifacts/sarcent-aarch64/sarcent-aarch64
+            artifacts/sarcent-android-aarch64/sarcent-android-aarch64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
