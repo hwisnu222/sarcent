@@ -2,7 +2,7 @@ use tokio::fs::File;
 use tonic::transport::Channel;
 use tokio::io::AsyncReadExt;
 
-use crate::modules::worker::masterworker::{FileChunk, file_service_client::FileServiceClient};
+use crate::modules::worker::masterworker::{self, FileChunk, StorageRequest, StorageResponse, file_service_client::FileServiceClient};
 
 const CHUNK_SIZE: usize = 2 * 1024 * 1024;
 
@@ -55,4 +55,13 @@ pub async fn upload_stream_file(client: &mut FileServiceClient<Channel>, file_pa
     let r = res.into_inner();
 
     Ok(r.file_id)
+}
+
+
+pub async fn get_storage_info(ip_server: String) -> Result<StorageResponse, Box<dyn std::error::Error>>{
+    println!("ip: {}", ip_server);
+    let mut client = masterworker::master_worker_client::MasterWorkerClient::connect(ip_server).await?;
+    let request = tonic::Request::new(StorageRequest{});
+    let info =  client.get_storage_info(request).await?;
+    Ok(info.into_inner())
 }
