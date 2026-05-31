@@ -25,8 +25,8 @@ jobs:
             runner: ubuntu-22.04
             artifact_name: sarcent-aarch64
 
-          # Android ARM64 (issue TLS Segment alignment)
-          - target: aarch64-unknown-linux-android
+          # Android ARM64 (Android)
+          - target: aarch64-linux-android
             runner: ubuntu-22.04
             artifact_name: sarcent-android-aarch64
 
@@ -35,13 +35,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.95.0"
           targets: ${{ matrix.target }}
 
       - name: Install cargo-ndk (Android Only)
-        if: matrix.target == 'aarch64-unknown-linux-android'
+        if: matrix.target == 'aarch64-linux-android'
         run: cargo install cargo-ndk
 
       - name: Install build dependencies (Linux & Protobuf)
@@ -56,8 +55,8 @@ jobs:
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-android" ]; then
-            # target API 29 (Android 10+) TLS alignment active
+          if [ "${{ matrix.target }}" = "aarch64-linux-android" ]; then
+            # target aarch64-linux-android
             cargo ndk -t arm64-v8a -p 29 build --release
           else
             cargo build --release --target ${{ matrix.target }}
@@ -66,11 +65,7 @@ jobs:
       - name: Prepare Artifact
         run: |
           mkdir -p release
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-android" ]; then
-            cp target/aarch64-unknown-linux-android/release/sarcent release/${{ matrix.artifact_name }}
-          else
-            cp target/${{ matrix.target }}/release/sarcent release/${{ matrix.artifact_name }}
-          fi
+          cp target/${{ matrix.target }}/release/sarcent release/${{ matrix.artifact_name }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
