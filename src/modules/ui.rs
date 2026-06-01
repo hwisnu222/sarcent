@@ -46,5 +46,9 @@ pub enum NodeAction{
     #[arg(long, required=true, value_delimiter=',')]
     ips: Vec<String>
   },
-  List
+  List,
+  Remove{
+      #[arg(long, required=true)]
+      ip: String
+  }
 }
