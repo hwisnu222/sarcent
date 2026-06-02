@@ -14,7 +14,7 @@ Sarcent operates in two modes: **Master** and **Worker**.
 Run the following command:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/hwisnu222/sarcent/refs/heads/main/install.sh | sudo sh
+curl -sL https://raw.githubusercontent.com/hwisnu222/sarcent/main/install.sh | sudo sh
 ```
 
 ### Running Worker
