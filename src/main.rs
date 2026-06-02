@@ -1,6 +1,6 @@
 use clap::{Parser};
 
-use crate::modules::{repository::Repository, ui::{Cli, Command, NodeAction}, runner::{master_runner, worker_runner}};
+use crate::modules::{repository::{Repository}, runner::{master_runner, worker_runner}, ui::{Cli, Command, NodeAction}};
 
 pub mod modules;
 
@@ -48,6 +48,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                            println!("{}.  [{}]", index+1, ip);
                        }
                    }
+                },
+                NodeAction::Remove{ip}=>{
+                    match repo.remove_node(ip.clone()).await{
+                        Ok(_) => {
+                            println!("server node with {} address is deleted", ip);
+                        }
+                        Err(e) => {
+                            eprintln!("failed remove server node. Error: {}", e);
+                        }
+                   }
+
                 }
                 
             }

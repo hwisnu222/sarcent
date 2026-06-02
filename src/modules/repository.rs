@@ -73,6 +73,15 @@ impl Repository {
         Ok(data)
     }
 
+    // remove node by server_address
+    pub async fn remove_node(&self, server_address: String) -> Result<usize, Box<dyn Error>>{
+        let node_removed = self.conn.call(move |conn|{
+            conn.execute("DELETE FROM vnodes WHERE server_address = ?1", [server_address])
+        }).await?;
+
+        Ok(node_removed)
+    }
+
     pub async fn get_servers(&self) -> Result<Vec<String>, Box<dyn Error>>{
         let servers = self.conn.call(|conn| -> Result<Vec<String>, tokio_rusqlite::Error>{
             let mut stmt = conn.prepare("SELECT DISTINCT server_address FROM vnodes ORDER BY server_address ASC")?;
