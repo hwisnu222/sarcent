@@ -1,10 +1,20 @@
+use std::{error::Error,sync::Arc};
+
+use futures::future::join_all;
 use tokio::fs::File;
-use tonic::transport::Channel;
+use tonic::{transport::Channel};
 use tokio::io::AsyncReadExt;
 
-use crate::modules::worker::masterworker::{self, FileChunk, StorageRequest, StorageResponse, file_service_client::FileServiceClient};
+
+use crate::modules::{client::FileServiceClusterClient, repository::Repository, worker::masterworker::{self, FileChunk, SearchRequest, SearchResponse, StorageRequest, StorageResponse, file_service_client::FileServiceClient}};
 
 const CHUNK_SIZE: usize = 2 * 1024 * 1024;
+
+pub async fn client_file_service(ip_server: &str) -> Result<FileServiceClient<Channel>, Box<dyn Error>>{
+    let host = format!("http://{}", ip_server);
+    let client = masterworker::file_service_client::FileServiceClient::connect(host).await?;
+    Ok(client)
+}
 
 pub async fn upload_stream_file(client: &mut FileServiceClient<Channel>, file_path: String) -> Result<String, Box<dyn std::error::Error>>{
     let mut file = File::open(&file_path).await?;
@@ -64,4 +74,55 @@ pub async fn get_storage_info(ip_server: String) -> Result<StorageResponse, Box<
     let request = tonic::Request::new(StorageRequest{});
     let info =  client.get_storage_info(request).await?;
     Ok(info.into_inner())
+}
+
+pub async fn search_files(filename: String) -> Result<Vec<SearchResponse>, Box<dyn Error>>{
+    let repo = Repository::new().await?;
+    let cluster = FileServiceClusterClient::init().await?;
+    let cluster_arc = Arc::new(cluster);
+
+    let servers = repo.get_servers().await?;
+    let mut tasks = Vec::new();
+    
+    // use tread async to get all server
+    // to minimum usage of ram
+    // because if create connection every hanshake will make more time to initial
+    for server in servers{
+        let file_name = filename.clone();
+        let cluster_clone  = Arc::clone(&cluster_arc);
+
+        let task = tokio::spawn(async move{
+            if let Some(mut client) = cluster_clone.get_client(&server){
+                let search = client.search_file(SearchRequest{file_name}).await?;
+                let info = search.into_inner();
+
+                Ok::<SearchResponse, Box<dyn Error + Send + Sync>>(info)
+            }else{
+                Err("failed connect to client".into())
+            }
+        });
+        tasks.push(task);
+    }
+
+
+    let results = join_all(tasks).await;
+
+    let responses: Vec<SearchResponse> = results.into_iter()
+        .filter_map(|r|{
+            match r {
+                Ok(Ok(search_res)) =>{
+                    Some(search_res)
+                }
+                Ok(Err(grpc_err))=>{
+                    println!("failed search file. Error: {}", grpc_err);
+                    None
+                }
+                Err(tokio_err)=>{
+                    println!("process connect cancelled. Error: {}", tokio_err);
+                    None
+                }
+            }
+        }).collect();
+
+    Ok(responses)
 }

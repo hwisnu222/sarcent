@@ -5,3 +5,4 @@ pub mod ui;
 pub mod runner;
 pub mod daemon;
 pub mod util;
+pub mod client;
