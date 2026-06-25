@@ -2,6 +2,9 @@ pub mod masterworker {
     tonic::include_proto!("masterworker");
 }
 
+use std::fs;
+use std::path::Path;
+
 use masterworker::master_worker_server::{MasterWorker};
 use masterworker::file_service_server::{FileService};
 use masterworker::{StorageRequest, StorageResponse};
@@ -10,8 +13,9 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tonic::{Request, Response, Status, Streaming};
 use uuid::Uuid;
+use walkdir::WalkDir;
 
-use crate::modules::worker::masterworker::{FileChunk, UploadResponse};
+use crate::modules::worker::masterworker::{FileChunk, FileInfo, SearchRequest, SearchResponse, UploadResponse};
 
 #[derive(Clone)]
 pub struct WorkerService{
@@ -91,6 +95,43 @@ impl FileService for FileUploadData{
             status: "success".to_string()
         };
         Ok(tonic::Response::new(result))
+    }
+
+    async fn search_file(&self, request: Request<SearchRequest>)-> Result<Response<SearchResponse>, Status>{
+        let file_name_search = request.into_inner().file_name;
+        println!("search file query: {}", file_name_search);
+
+        // parse data option in cli argument
+        // then get value option 'target' directory
+        // walkdir inside that directory
+        // filter with match request
+        let mut files: Vec<FileInfo> = Vec::new();
+
+        for entry in WalkDir::new(".").into_iter().filter_map(|e| e.ok()){
+            if entry.file_type().is_file(){
+                if let Some(file_name_str) = entry.file_name().to_str(){
+                    let is_match = file_name_str.to_lowercase().contains(&file_name_search.to_lowercase());
+
+                    if is_match{
+                        let path = Path::new(file_name_str);
+                        let file_size = fs::metadata(path)?.len();
+
+                        let item: FileInfo = FileInfo{
+                            file_name: entry.path().display().to_string(),
+                            file_size_bytes: file_size as i64
+                        };
+                        files.push(item);
+
+                    }
+                }
+            }
+        }
+
+        let res = SearchResponse{
+            files: files.clone(),
+            total_found: files.len() as i32,
+        };
+        Ok(Response::new(res))
     }
 }
 

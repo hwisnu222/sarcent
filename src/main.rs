@@ -1,6 +1,6 @@
 use clap::{Parser};
 
-use crate::modules::{repository::{Repository}, runner::{master_runner, worker_runner}, ui::{Cli, Command, NodeAction}};
+use crate::modules::{repository::Repository, runner::{master_runner, worker_runner}, ui::{Cli, Commands, NodeAction}, util::search_files};
 
 pub mod modules;
 
@@ -10,7 +10,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let repo = Repository::new().await?;
 
     match args.command{
-        Command::Master { interval , source, detach:_, tls} => {
+        Commands::Master { interval , source, detach:_, tls} => {
             // if detach{
             //     let daemon = Daemon::new("sercent-master");
             //     daemon.run_background();
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             master_runner(repo, interval, source, tls).await?;
 
         },
-        Command::Worker { target, detach:_} => {
+        Commands::Worker { target, detach:_} => {
             // if detach{
             //     let daemon = Daemon::new("sercent-worker");
             //     daemon.run_background();
@@ -27,13 +27,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             worker_runner(target).await?;
         },
-        Command::Node(node_args)=> {
+        Commands::Node(node_args)=> {
             match node_args.action {
                 NodeAction::Add { ips }  =>{
                     println!("register ip worker");
+                    println!("creating 126 vnodes partition");
 
                     for ip in ips{
-                        println!("creating 126 vnodes partition");
                         repo.add_node(ip).await?;
                     }
                 },
@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                    }else{
                        println!("Total active server: {} server", servers.len());
                        for (index, ip) in servers.iter().enumerate(){
-                           println!("{}.  [{}]", index+1, ip);
+                           println!("{}.  {}", index+1, ip);
                        }
                    }
                 },
@@ -58,9 +58,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             eprintln!("failed remove server node. Error: {}", e);
                         }
                    }
-
+                },
+                NodeAction::Search { filename } =>{
+                    match search_files(filename.to_string()).await {
+                        Ok(responses)=>{
+                            for response in responses{
+                                for file in response.files{
+                                    println!("{}", file.file_name);
+                                }
+                            }
+                        }
+                        Err(e)=>{
+                            eprintln!("Error: {}", e);
+                        }
+                   }
                 }
-                
             }
         }
     }

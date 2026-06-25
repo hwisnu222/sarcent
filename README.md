@@ -14,7 +14,7 @@ Sarcent operates in two modes: **Master** and **Worker**.
 Run the following command:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/hwisnu222/sarcent/main/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/hwisnu222/sarcent/main/install.sh | sudo bash
 ```
 
 ### Running Worker
@@ -27,17 +27,35 @@ sarcent worker --target storage/
 
 ### Running Master
 
-1. First, add the worker nodes to the master:
+First, add the worker nodes to the master:
 
 ```bash
 sarcent node add --ips=10.1.1.234:50051,200.23.34.123:50051
 ```
 
-2. Then start the master:
+Then start the master:
 
 ```bash
 sarcent master --source directory/
 ```
+
+### Remove node
+
+if you want delete the node you can following the command below
+
+```bash
+sarcent node remove -ip=192.168.12.134:50051
+```
+
+### Search file
+
+search file on every node
+
+```bash
+sarcent node search --filename "file.txt"
+```
+
+this command will return list of result search
 
 ## Features
 

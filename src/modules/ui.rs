@@ -4,11 +4,11 @@ use clap::{Parser,Subcommand, Args, ArgAction::SetTrue};
 #[command(version, about="sercent - file server worker")]
 pub struct Cli{
     #[command(subcommand)]
-    pub command: Command
+    pub command: Commands
 }
 
 #[derive(Subcommand, Debug)]
-pub enum Command{
+pub enum Commands{
     Master{
         #[arg(short, long, default_value_t=10)]
         interval: u64,
@@ -50,5 +50,9 @@ pub enum NodeAction{
   Remove{
       #[arg(long, required=true)]
       ip: String
+  },
+  Search{
+      #[arg(long, required=true)]
+      filename: String
   }
 }
