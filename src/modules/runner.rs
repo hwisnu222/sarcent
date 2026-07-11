@@ -25,13 +25,13 @@ pub async fn master_runner(repo: Repository, interval: u64, source: String, tls:
                     // hashing every file to murmur3_32
                     let hashed = hash_to_coordinate(&file_name.to_string_lossy());
 
-                    // get server ip based on hash >= hash_key server_address
+                    // get server ip based on hash file >= hash_key server_address
                     let mut rings = node.ring.clone();
                     let get_start_idx = rings.iter().position(|&x| hashed > x);
 
                     // handle if hash file get last hash vnode then the file will move in
-                    // hash vnode first ring, but if vnode full storage up to ring above until
-                    // get vnode with available storage
+                    // hash vnode first ring, 
+                    // but if vnode storage is full move ring to above until get vnode with available storage
                     match get_start_idx{
                         Some(start_idx)=>{
                             rings.rotate_left(start_idx);
@@ -43,11 +43,15 @@ pub async fn master_runner(repo: Repository, interval: u64, source: String, tls:
                                     let limit_storage_perc  = 90.0 as f64;
                                     let protocol = if tls {"https"} else {"http"};
 
-                                    // check available storage
+                                    // check the available storage space
                                     match get_storage_info(format!("{}://{}", protocol, url)).await{
                                         Ok(storage_info) =>{
-                                            if storage_info.usage_percent < limit_storage_perc{
-                                                // then use the result ip to send file
+                                            let file_size = entry_file.metadata()?.len();
+
+                                            println!("available_space: {}", storage_info.available_space);
+                                            // send file if storage_server < limit_staroage and
+                                            // file_size < available_space_server
+                                            if storage_info.usage_percent < limit_storage_perc && file_size < storage_info.available_space{
                                                 println!("file {} moving to {}", path_file.to_string_lossy(), url );
 
                                                 let protocol = if tls {"https"} else {"http"};
