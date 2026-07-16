@@ -1,3 +1,4 @@
+
 use std::{error::Error,sync::Arc};
 
 use futures::future::join_all;
@@ -5,14 +6,13 @@ use tokio::fs::File;
 use tonic::{transport::Channel};
 use tokio::io::AsyncReadExt;
 
-
-use crate::modules::{client::FileServiceClusterClient, repository::Repository, worker::masterworker::{self, FileChunk, SearchRequest, SearchResponse, StorageRequest, StorageResponse, file_service_client::FileServiceClient}};
+use crate::{services::client::FileServiceClusterClient, repository::vnode::VnodeRepository, servers::master::file::{FileChunk, SearchRequest, SearchResponse, file_service_client::{self, FileServiceClient}}};
 
 const CHUNK_SIZE: usize = 2 * 1024 * 1024;
 
 pub async fn client_file_service(ip_server: &str) -> Result<FileServiceClient<Channel>, Box<dyn Error>>{
     let host = format!("http://{}", ip_server);
-    let client = masterworker::file_service_client::FileServiceClient::connect(host).await?;
+    let client = file_service_client::FileServiceClient::connect(host).await?;
     Ok(client)
 }
 
@@ -67,17 +67,8 @@ pub async fn upload_stream_file(client: &mut FileServiceClient<Channel>, file_pa
     Ok(r.file_id)
 }
 
-
-pub async fn get_storage_info(ip_server: String) -> Result<StorageResponse, Box<dyn std::error::Error>>{
-    println!("ip: {}", ip_server);
-    let mut client = masterworker::master_worker_client::MasterWorkerClient::connect(ip_server).await?;
-    let request = tonic::Request::new(StorageRequest{});
-    let info =  client.get_storage_info(request).await?;
-    Ok(info.into_inner())
-}
-
 pub async fn search_files(filename: String) -> Result<Vec<SearchResponse>, Box<dyn Error>>{
-    let repo = Repository::new().await?;
+    let repo = VnodeRepository::new().await?;
     let cluster = FileServiceClusterClient::init().await?;
     let cluster_arc = Arc::new(cluster);
 

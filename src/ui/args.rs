@@ -10,9 +10,6 @@ pub struct Cli{
 #[derive(Subcommand, Debug)]
 pub enum Commands{
     Master{
-        #[arg(short, long, default_value_t=10)]
-        interval: u64,
-
         #[arg(short, long, default_value=".")]
         source: String,
 
