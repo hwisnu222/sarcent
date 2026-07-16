@@ -27,7 +27,12 @@ pub enum Commands{
         detach: bool,
     },
 
-    Node(NodeArgs)
+    Node(NodeArgs),
+
+    Search{
+        #[arg(short, long)]
+        filename: String,
+    }
 }
 
 #[derive(Args,Debug)]
@@ -48,8 +53,4 @@ pub enum NodeAction{
       #[arg(long, required=true)]
       ip: String
   },
-  Search{
-      #[arg(long, required=true)]
-      filename: String
-  }
 }

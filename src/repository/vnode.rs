@@ -1,7 +1,9 @@
 
-use std::{error::Error, fs};
+use std::{error::Error};
 
 use tokio_rusqlite::{Connection, rusqlite};
+
+use crate::repository::base::Repository;
 
 pub struct VnodeRepository{
     pub conn: Connection
@@ -9,24 +11,8 @@ pub struct VnodeRepository{
 
 impl VnodeRepository {
     pub async fn new()-> Result<Self, Box<dyn std::error::Error>>{
-        let mut path = dirs::config_dir().expect("failed get config directory");
-        path.push("sarcent");
-        if !path.exists(){
-            fs::create_dir_all(&path).expect("failed create config directory");
-        }
-        path.push("app.db");
-        let path_db = path.to_str().unwrap();
-
-        let conn = Connection::open(path_db).await?;
-
-        conn.call(|conn|{
-            conn.execute("CREATE TABLE IF NOT EXISTS vnodes (
-                server_address TEXT NOT NULL,
-                discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )", [])
-        }).await?;
+        let repository = Repository::new().await?;
+        let conn = repository.connection;
 
         Ok(Self{conn})
     }
