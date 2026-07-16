@@ -1,29 +1,108 @@
-pub mod masterworker {
-    tonic::include_proto!("masterworker");
+pub mod storage {
+    tonic::include_proto!("storage");
+}
+pub mod file {
+    tonic::include_proto!("file");
 }
 
-use std::fs;
-use std::path::Path;
-
-use masterworker::master_worker_server::{MasterWorker};
-use masterworker::file_service_server::{FileService};
-use masterworker::{StorageRequest, StorageResponse};
+use storage::storage_service_server::{StorageService};
+use file::file_service_server::{FileService};
+use storage::{StorageRequest, StorageResponse};
 use sysinfo::Disks;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tonic::{Request, Response, Status, Streaming};
 use uuid::Uuid;
 use walkdir::WalkDir;
+use std::{env, error::Error, fs, path::{Path}};
+use tonic::{ transport::{Channel}};
+use crate::{repository::metadata::{MetadataItem, MetadataRepository}, servers::master::file::file_service_client::FileServiceClient};
+use crate::servers::master::file::{FileChunk, FileInfo, SearchRequest, SearchResponse, UploadResponse};
+use crate::{repository::vnode::VnodeRepository, services::{file::upload_stream_file, storage::get_storage_info}};
 
-use crate::modules::worker::masterworker::{FileChunk, FileInfo, SearchRequest, SearchResponse, UploadResponse};
 
-#[derive(Clone)]
-pub struct WorkerService{
-    pub worker_id: String
+
+pub async fn run(source: String, tls: bool)->Result<(), Box<dyn Error>>{
+    let repo = VnodeRepository::new().await?;
+    let metadata_repository = MetadataRepository::new().await?;
+    println!("master is running, source: {}", source);
+    let servers = repo.get_servers().await?;
+
+    let root_dir = Path::new(&source);
+    if let Err(e) = env::set_current_dir(&root_dir){
+        eprintln!("failed change workdir to {}. Error: {}",root_dir.display(), e);
+        return Err(e.into());
+    }
+
+    // walkdir to get all file in current directory
+    for entry in WalkDir::new("."){
+        let entry_file = entry?;
+        let path_file = entry_file.path();
+
+        if path_file.is_file(){
+            for url in &servers{
+                let limit_storage_perc: f64  = 90.0 as f64;
+                let protocol: &str = if tls {"https"} else {"http"};
+                let host: String= format!("{}://{}", protocol, url);
+                let storage_info = get_storage_info(host).await?;
+
+                let file_size = entry_file.metadata()?.len();
+
+                println!("available_space: {}", storage_info.available_space);
+                // send file if storage_server < limit_staroage and
+                // file_size < available_space_server
+                if storage_info.usage_percent < limit_storage_perc && file_size < storage_info.available_space{
+                    println!("file {} moving to {}", path_file.to_string_lossy(), url );
+
+                    let protocol = if tls {"https"} else {"http"};
+                    let server_url = format!("{}://{}",protocol, url);
+                    let channel = Channel::from_shared(server_url)?.connect().await?;
+                    let mut client = FileServiceClient::new(channel);
+
+                    match upload_stream_file(&mut client, path_file.to_string_lossy().to_string()).await {
+                        Ok(file_id)=>{
+                            println!("success move file, {}", file_id);
+                            let filename = path_file.file_name().map(|s| s.display().to_string()).unwrap_or_default();
+                            let parent = path_file.parent().map(|s| s.display().to_string()).unwrap_or_default();
+
+                            let metadata = MetadataItem{
+                                name: filename,
+                                path: parent,
+                                size_bytes: file_size as u32,
+                            };
+
+                            if let Ok(_) =  metadata_repository.add_metadata(metadata).await{
+                                println!("metadata is added");
+                            }else{
+                                println!("failed add metadata");
+                            }
+                        
+                            fs::remove_file(path_file)?;
+                            break;
+                        }
+                        Err(e)=>{
+                            eprintln!("failed upload file. Error: {}", e);
+                        }
+                    }
+                }else{
+                    println!("server can't to saving, storage is fulled");
+                    continue;
+                }
+
+
+            }
+        }
+    };
+
+    Ok(())
+
 }
 
+#[derive(Clone)]
+pub struct StorageData;
+
 #[tonic::async_trait]
-impl MasterWorker for WorkerService{
+impl StorageService for StorageData{
     async fn get_storage_info(&self, _request: tonic::Request<StorageRequest>)-> Result<tonic::Response<StorageResponse>, tonic::Status>{
         let disks = Disks::new_with_refreshed_list();
         
@@ -34,7 +113,6 @@ impl MasterWorker for WorkerService{
         let used = total - available;
 
         let response = StorageResponse{
-            worker_id: self.worker_id.clone(),
             total_space: total,
             used_space: used,
             available_space: available,

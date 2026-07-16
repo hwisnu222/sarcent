@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, time::Duration};
 
 use tonic::transport::{Channel, Endpoint};
 
-use crate::modules::{repository::Repository, worker::masterworker::file_service_client::FileServiceClient};
+use crate::{repository::vnode::VnodeRepository, servers::master::file::file_service_client::FileServiceClient,};
 
 pub struct FileServiceClusterClient {
     pub pool: HashMap<String, FileServiceClient<Channel>>
@@ -11,7 +11,7 @@ pub struct FileServiceClusterClient {
 impl FileServiceClusterClient{
     pub async fn init() -> Result<Self, Box<dyn Error>>{
         let mut pool = HashMap::new();
-        let repo = Repository::new().await?;
+        let repo = VnodeRepository::new().await?;
         let servers = repo.get_servers().await?;
 
         for server in servers.into_iter(){
