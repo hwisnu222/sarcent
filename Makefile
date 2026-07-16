@@ -10,5 +10,8 @@ node:
 node-list:
 	cargo run -- node list
 
+rollback-file:
+	mv ./storage/* ./source/
+
 help:
 	cargo run -- -h
