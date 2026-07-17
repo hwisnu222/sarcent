@@ -1,7 +1,6 @@
 use std::{error::Error};
 use tokio_rusqlite::{Connection};
 use tracing::{debug};
-use walkdir::WalkDir;
 
 use crate::repository::base::Repository;
 
@@ -19,20 +18,20 @@ impl MigrateDatabase{
     // migrate all file sqlite from file sql instead of run query
     // inside of each repository
     pub async fn migrate(&self) -> Result<(), Box<dyn Error>>{
-        for entry in WalkDir::new("./src/migrations/"){
-            let entry_file = entry?;
-            let path = entry_file.path();
+        // TODO: change this vector read from folder
+        // with the include_dir crate
+        let migrations = vec![
+            include_str!("../migrations/metadata.sql"),
+            include_str!("../migrations/vnode.sql")
+        ];
 
-            if path.is_file(){
-                debug!("{} is migrated", path.file_name().unwrap().to_string_lossy());
-                let sql = include_str!("../migrations/metadata.sql");
+        debug!("migrate...");
+        for migration in migrations{
+            self.conn.call(|conn|{
+                conn.execute_batch(migration)
+            }).await?;
+        };
 
-                self.conn.call(|conn|{
-                    conn.execute_batch(sql)
-                }).await?;
-            }
-
-        }
         Ok(())
     }
 }

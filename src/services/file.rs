@@ -5,9 +5,9 @@ use tokio::fs::File;
 use tonic::{transport::Channel};
 use tokio::io::AsyncReadExt;
 
-use crate::{servers::master::file::{FileChunk, file_service_client::{self, FileServiceClient}}};
+use crate::{servers::worker::file::{FileChunk, file_service_client::{self, FileServiceClient}}};
 
-const CHUNK_SIZE: usize = 2 * 1024 * 1024;
+const CHUNK_SIZE: usize = 2 * 1024 * 1024; // 2Mb
 
 pub async fn client_file_service(ip_server: &str) -> Result<FileServiceClient<Channel>, Box<dyn Error>>{
     let host = format!("http://{}", ip_server);

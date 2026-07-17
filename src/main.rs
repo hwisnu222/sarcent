@@ -1,12 +1,13 @@
 use clap::{Parser};
 use tabled::settings::Style;
 use tabled::{Table};
-use tracing::{Level, info, error};
+use tracing::{Level, info, error, debug};
 
 use crate::repository::metadata::{MetadataRepository};
 use crate::repository::migrate::MigrateDatabase;
 use crate::ui::args::{Cli, Commands, NodeAction};
 use crate::repository::vnode::VnodeRepository;
+use crate::utils::node::server_list;
 use crate::{servers::{master, worker}};
 
 pub mod utils;
@@ -28,8 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     migration.migrate().await?;
 
     match args.command{
-        Commands::Master {source, detach:_, tls} => {
-            master::run(source, tls).await?;
+        Commands::Master {source, detach:_, tls:_} => {
+            master::run(source).await?;
         },
         Commands::Worker { target, detach:_} => {
             worker::run(target).await?;
@@ -44,16 +45,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 },
                 NodeAction::List => {
-                   let servers = repo.get_servers().await?;
-
-                   if servers.is_empty(){
-                       info!("server is empty");
-                   }else{
+                    if let Ok(servers)= server_list().await {
                         info!("Total active server: {} server", servers.len());
                         let mut table = Table::new(servers);
-                        table.with(Style::modern());
+                        table.with(Style::modern_rounded());
                         println!("{}", table);
-                   }
+                    }
                 },
                 NodeAction::Remove{ip}=>{
                     match repo.remove_node(ip.clone()).await{
@@ -61,7 +58,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             info!("{} server is deleted", ip);
                         }
                         Err(e) => {
-                            error!("failed remove server node. Error: {}", e);
+                            debug!("{}", e);
+                            error!("failed remove server node");
                         }
                    }
                 },
@@ -73,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match metadata_respository.search_by_name(filename).await{
                 Ok(metadata)=>{
                     let mut table = Table::new(metadata);
-                    table.with(Style::modern());
+                    table.with(Style::modern_rounded());
                     println!("{}", table);
                 }
                 Err(e)=>{

@@ -1,4 +1,4 @@
-use crate::servers::master::storage::{StorageRequest, StorageResponse, storage_service_client::StorageServiceClient};
+use crate::servers::worker::storage::{StorageRequest, StorageResponse, storage_service_client::StorageServiceClient};
 
 
 pub async fn get_storage_info(ip_server: String) -> Result<StorageResponse, Box<dyn std::error::Error>>{

@@ -1,12 +1,18 @@
 
 use std::{error::Error};
 
+use tabled::Tabled;
 use tokio_rusqlite::{Connection, rusqlite};
 
 use crate::repository::base::Repository;
 
 pub struct VnodeRepository{
     pub conn: Connection
+}
+
+#[derive(Tabled)]
+pub struct Server{
+    pub address: String
 }
 
 impl VnodeRepository {

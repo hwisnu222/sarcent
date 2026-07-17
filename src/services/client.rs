@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, time::Duration};
 
 use tonic::transport::{Channel, Endpoint};
 
-use crate::{repository::vnode::VnodeRepository, servers::master::file::file_service_client::FileServiceClient,};
+use crate::{repository::vnode::VnodeRepository, servers::{worker::file::file_service_client::FileServiceClient},};
 
 pub struct FileServiceClusterClient {
     pub pool: HashMap<String, FileServiceClient<Channel>>
