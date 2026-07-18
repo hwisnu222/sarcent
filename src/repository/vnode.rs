@@ -33,9 +33,9 @@ impl VnodeRepository {
     }
 
     // remove node by server_address
-    pub async fn remove_node(&self, server_address: String) -> Result<usize, Box<dyn Error>>{
+    pub async fn remove_node(&self, id: String) -> Result<usize, Box<dyn Error>>{
         let node_removed = self.conn.call(move |conn|{
-            conn.execute("DELETE FROM vnodes WHERE server_address = ?1", [server_address])
+            conn.execute("DELETE FROM vnodes WHERE id = ?1", [id])
         }).await?;
 
         Ok(node_removed)

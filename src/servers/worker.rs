@@ -19,14 +19,11 @@ use tonic::{ transport::{Server}};
 
 use crate::servers::worker::{file::{FileChunk, UploadResponse, file_service_server::FileServiceServer}, storage::storage_service_server::StorageServiceServer};
 
+pub async fn run(target: String, port: u16) -> Result<(), Box<dyn Error>>{
+    let address = format!("0.0.0.0:{}", port).parse()?;
 
-
-
-pub async fn run(target: String ) -> Result<(), Box<dyn Error>>{
-    info!("worker is running....");
+    info!("worker is running at {}", address);
     info!("target: {}", target);
-
-    let address = "0.0.0.0:50051".parse()?;
 
     let root_dir = Path::new(&target);
     if let Err(e) = env::set_current_dir(&root_dir){
@@ -54,19 +51,19 @@ impl StorageService for StorageData{
         let disks = Disks::new_with_refreshed_list();
         
         let disk = disks.first().ok_or_else(|| {tonic::Status::internal("no disk found")})?;
-        let total = disk.total_space();
-        let available = disk.available_space();
-        let used = total - available;
+        let total_space = disk.total_space();
+        let available_space = disk.available_space();
+        let used_space = total_space - available_space;
+        let usage_percent = if total_space > 0 {(used_space as f64 / total_space as f64)*100.0} else {0.0};
 
         let response = StorageResponse{
-            total_space: total,
-            used_space: used,
-            available_space: available,
-            usage_percent: if total > 0 {(used as f64 / total as f64)*100.0} else {0.0},
+            total_space,
+            used_space,
+            available_space,
+            usage_percent
         };
         Ok(tonic::Response::new(response))
     }
-    
 }
 
 pub struct FileUploadData;

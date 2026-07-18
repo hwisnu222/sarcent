@@ -57,10 +57,10 @@ pub async fn run(source: String)->Result<(), Box<dyn Error>>{
 
                             match metadata_repository.add_metadata(metadata).await{
                                 Ok(_)=>{
-                                    info!("metadata has been added");
+                                    debug!("metadata has been added");
                                 }
                                 Err(e)=>{
-                                    error!("{}", e);
+                                    debug!("{}", e);
                                 }
                             }
 
