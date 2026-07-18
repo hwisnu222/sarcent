@@ -5,21 +5,11 @@ package file;
 
 service FileService{
   rpc UploadFile(stream FileChunk) returns (UploadResponse);
-  rpc SearchFile(SearchRequest) returns (SearchResponse);
 }
 
 message FileInfo {
   string file_name = 1;
   int64 file_size_bytes = 2;
-}
-
-message SearchRequest{
-  string file_name = 1;
-}
-
-message SearchResponse{
-  repeated FileInfo files = 1;
-  int32 total_found = 2;
 }
 
 message FileChunk{

@@ -1,32 +1,24 @@
 
-use std::{error::Error, fs};
+use std::{error::Error};
 
+use tabled::Tabled;
 use tokio_rusqlite::{Connection, rusqlite};
+
+use crate::repository::base::Repository;
 
 pub struct VnodeRepository{
     pub conn: Connection
 }
 
+#[derive(Tabled)]
+pub struct Server{
+    pub address: String
+}
+
 impl VnodeRepository {
     pub async fn new()-> Result<Self, Box<dyn std::error::Error>>{
-        let mut path = dirs::config_dir().expect("failed get config directory");
-        path.push("sarcent");
-        if !path.exists(){
-            fs::create_dir_all(&path).expect("failed create config directory");
-        }
-        path.push("app.db");
-        let path_db = path.to_str().unwrap();
-
-        let conn = Connection::open(path_db).await?;
-
-        conn.call(|conn|{
-            conn.execute("CREATE TABLE IF NOT EXISTS vnodes (
-                server_address TEXT NOT NULL,
-                discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )", [])
-        }).await?;
+        let repository = Repository::new().await?;
+        let conn = repository.connection;
 
         Ok(Self{conn})
     }
@@ -41,9 +33,9 @@ impl VnodeRepository {
     }
 
     // remove node by server_address
-    pub async fn remove_node(&self, server_address: String) -> Result<usize, Box<dyn Error>>{
+    pub async fn remove_node(&self, id: String) -> Result<usize, Box<dyn Error>>{
         let node_removed = self.conn.call(move |conn|{
-            conn.execute("DELETE FROM vnodes WHERE server_address = ?1", [server_address])
+            conn.execute("DELETE FROM vnodes WHERE id = ?1", [id])
         }).await?;
 
         Ok(node_removed)

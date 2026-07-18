@@ -1,14 +1,13 @@
 
-use std::{error::Error,sync::Arc};
+use std::{error::Error};
 
-use futures::future::join_all;
 use tokio::fs::File;
 use tonic::{transport::Channel};
 use tokio::io::AsyncReadExt;
 
-use crate::{services::client::FileServiceClusterClient, repository::vnode::VnodeRepository, servers::master::file::{FileChunk, SearchRequest, SearchResponse, file_service_client::{self, FileServiceClient}}};
+use crate::{servers::worker::file::{FileChunk, file_service_client::{self, FileServiceClient}}};
 
-const CHUNK_SIZE: usize = 2 * 1024 * 1024;
+const CHUNK_SIZE: usize = 2 * 1024 * 1024; // 2Mb
 
 pub async fn client_file_service(ip_server: &str) -> Result<FileServiceClient<Channel>, Box<dyn Error>>{
     let host = format!("http://{}", ip_server);
@@ -46,8 +45,6 @@ pub async fn upload_stream_file(client: &mut FileServiceClient<Channel>, file_pa
                 }
                 Err(_)=>{break}
             };
-
-           
         };
 
         if let Some(parent_path) = path.parent(){
@@ -67,53 +64,3 @@ pub async fn upload_stream_file(client: &mut FileServiceClient<Channel>, file_pa
     Ok(r.file_id)
 }
 
-pub async fn search_files(filename: String) -> Result<Vec<SearchResponse>, Box<dyn Error>>{
-    let repo = VnodeRepository::new().await?;
-    let cluster = FileServiceClusterClient::init().await?;
-    let cluster_arc = Arc::new(cluster);
-
-    let servers = repo.get_servers().await?;
-    let mut tasks = Vec::new();
-    
-    // use tread async to get all server
-    // to minimum usage of ram
-    // because if create connection every hanshake will make more time to initial
-    for server in servers{
-        let file_name = filename.clone();
-        let cluster_clone  = Arc::clone(&cluster_arc);
-
-        let task = tokio::spawn(async move{
-            if let Some(mut client) = cluster_clone.get_client(&server){
-                let search = client.search_file(SearchRequest{file_name}).await?;
-                let info = search.into_inner();
-
-                Ok::<SearchResponse, Box<dyn Error + Send + Sync>>(info)
-            }else{
-                Err("failed connect to client".into())
-            }
-        });
-        tasks.push(task);
-    }
-
-
-    let results = join_all(tasks).await;
-
-    let responses: Vec<SearchResponse> = results.into_iter()
-        .filter_map(|r|{
-            match r {
-                Ok(Ok(search_res)) =>{
-                    Some(search_res)
-                }
-                Ok(Err(grpc_err))=>{
-                    println!("failed search file. Error: {}", grpc_err);
-                    None
-                }
-                Err(tokio_err)=>{
-                    println!("process connect cancelled. Error: {}", tokio_err);
-                    None
-                }
-            }
-        }).collect();
-
-    Ok(responses)
-}

@@ -1,8 +1,14 @@
-use clap::{Parser};
+use std::process;
 
+use clap::{Parser};
+use tracing::{Level, info, error, debug};
+
+use crate::repository::metadata::{MetadataRepository};
+use crate::repository::migrate::MigrateDatabase;
 use crate::ui::args::{Cli, Commands, NodeAction};
 use crate::repository::vnode::VnodeRepository;
-use crate::services::file::search_files;
+use crate::utils::node::server_list;
+use crate::utils::size::bytes_to_gb_string;
 use crate::{servers::{master, worker}};
 
 pub mod utils;
@@ -15,58 +21,74 @@ pub mod ui;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
     let repo = VnodeRepository::new().await?;
+    let migration = MigrateDatabase::new().await?;
+
+    let level_tracing = if args.verbose {Level::DEBUG} else {Level::INFO};
+
+    tracing_subscriber::fmt()
+        .with_max_level(level_tracing)
+        .init();
+
+    // run all migrations file 
+    migration.migrate().await?;
 
     match args.command{
-        Commands::Master {source, detach:_, tls} => {
-            master::run(source, tls).await?;
+        Commands::Master {source} => {
+            master::run(source).await?;
         },
-        Commands::Worker { target, detach:_} => {
-            worker::run(target).await?;
+        Commands::Worker { target, port} => {
+            worker::run(target, port).await?;
         },
         Commands::Node(node_args)=> {
             match node_args.action {
                 NodeAction::Add { ips }  =>{
-                    println!("register node");
-
                     for ip in ips{
                         repo.add_node(ip).await?;
                     }
+
+                    info!("node has been registered");
                 },
                 NodeAction::List => {
-                   let servers = repo.get_servers().await?;
+                    if let Ok(servers)= server_list().await {
+                        info!("Total active server: {} server", servers.len());
+                        // let mut table = Table::new(servers);
+                        // table.with(Style::modern_rounded());
+                        // println!("{}", table);
 
-                   if servers.is_empty(){
-                       println!("server is empty");
-                   }else{
-                       println!("Total active server: {} server", servers.len());
-                       for (index, ip) in servers.iter().enumerate(){
-                           println!("{}.  {}", index+1, ip);
-                       }
-                   }
+                        servers.iter().for_each(|server|{
+                            println!("[{:?}] [{}] used_space: {}, available: {}",server.status, server.address, server.used_space, server.available_space);
+                        });
+                    }
                 },
                 NodeAction::Remove{ip}=>{
                     match repo.remove_node(ip.clone()).await{
                         Ok(_) => {
-                            println!("server node with {} address is deleted", ip);
+                            info!("{} server is deleted", ip);
                         }
                         Err(e) => {
-                            eprintln!("failed remove server node. Error: {}", e);
+                            debug!("{}", e);
+                            error!("failed remove server node");
                         }
                    }
                 },
-                NodeAction::Search { filename } =>{
-                    match search_files(filename.to_string()).await {
-                        Ok(responses)=>{
-                            for response in responses{
-                                for file in response.files{
-                                    println!("{}", file.file_name);
-                                }
-                            }
-                        }
-                        Err(e)=>{
-                            eprintln!("Error: {}", e);
-                        }
-                   }
+            }
+        },
+        Commands::Search{filename} => {
+            let metadata_respository = MetadataRepository::new().await?;
+
+            match metadata_respository.search_by_name(filename).await{
+                Ok(metadata)=>{
+                    if metadata.len() < 1 {
+                        info!("there are not files found!");
+                        process::exit(1);
+                    }
+
+                    metadata.iter().for_each(|item|{
+                        println!("[{}] {} {}", item.server_address, bytes_to_gb_string(item.size_bytes as u64), item.name);
+                    });
+                }
+                Err(e)=>{
+                    error!("{}", e);
                 }
             }
         }

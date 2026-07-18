@@ -4,7 +4,11 @@ use clap::{Parser,Subcommand, Args, ArgAction::SetTrue};
 #[command(version, about="sercent - file server worker")]
 pub struct Cli{
     #[command(subcommand)]
-    pub command: Commands
+    pub command: Commands,
+
+    #[arg(short, long, action=SetTrue,)]
+    pub verbose: bool,
+
 }
 
 #[derive(Subcommand, Debug)]
@@ -13,21 +17,27 @@ pub enum Commands{
         #[arg(short, long, default_value=".")]
         source: String,
 
-        #[arg(short='d', long="detach", action=SetTrue)]
-        detach: bool,
+        // #[arg(short='d', long="detach", action=SetTrue)]
+        // detach: bool,
 
-        #[arg(short, long, action=SetTrue)]
-        tls: bool,
     },
     Worker{
         #[arg(short, long, default_value=".")]
         target: String,
 
-        #[arg(short='d', long="detach", action=SetTrue)]
-        detach: bool,
+        #[arg(short, long, default_value="50051")]
+        port: u16
+
+        // #[arg(short='d', long="detach", action=SetTrue)]
+        // detach: bool,
     },
 
-    Node(NodeArgs)
+    Node(NodeArgs),
+
+    Search{
+        #[arg(short, long)]
+        filename: String,
+    }
 }
 
 #[derive(Args,Debug)]
@@ -48,8 +58,4 @@ pub enum NodeAction{
       #[arg(long, required=true)]
       ip: String
   },
-  Search{
-      #[arg(long, required=true)]
-      filename: String
-  }
 }
